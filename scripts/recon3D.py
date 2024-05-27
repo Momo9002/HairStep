@@ -26,11 +26,11 @@ def load_hairstep(orien2d_path, depth_path, seg_path, load_size=512):
         ])
     orien2d = img_to_tensor(raw_orien2d).float()
 
-    out_mask = ((np.array(imageio.imread(seg_path))/255)<0.5)
-    if len(out_mask.shape)==3:
-        out_mask = out_mask[:,:,0]
+    out_mask = ((np.array(imageio.imread(seg_path)) / 255) < 0.5)
+    if len(out_mask.shape) == 3:
+        out_mask = out_mask[:, :, 0]
     depth = np.load(depth_path)
-    depth = depth + out_mask*opt.depth_out_mask
+    depth = depth + out_mask * opt.depth_out_mask
     depth = torch.from_numpy(depth).float()
 
     hairstep = torch.cat([orien2d, depth.unsqueeze(0)], dim=0)
@@ -69,33 +69,33 @@ def load_calib(calib_path, loadSize=1024):
 
     return calib
 
-def load_occNet(cuda, opt):
+def load_occNet(opt):
     # create net
     net_path = opt.checkpoint_hairstep2occ
-    net = HGPIFuNet_orien(opt).to(device=cuda)
+    net = HGPIFuNet_orien(opt).to(device=torch.device('cpu'))
 
     # load checkpoints
     print('loading for occNet ...', net_path)
-    net.load_state_dict(torch.load(net_path, map_location=cuda))
+    net.load_state_dict(torch.load(net_path, map_location=torch.device('cpu')))
     net.eval()
 
     return net
 
-def load_orienNet(cuda, opt):
+def load_orienNet(opt):
     # create net
     net_path = opt.checkpoint_hairstep2orien
-    net = HGPIFuNet_orien(opt, gen_orien=True).to(device=cuda)
+    net = HGPIFuNet_orien(opt, gen_orien=True).to(device=torch.device('cpu'))
 
     # load checkpoints
     print('loading for orienNet ...', net_path)
-    net.load_state_dict(torch.load(net_path, map_location=cuda))
+    net.load_state_dict(torch.load(net_path, map_location=torch.device('cpu')))
     net.eval()
 
     return net
 
 def recon3D_from_hairstep(opt):
-    # set cuda
-    cuda = torch.device('cuda:%d' % opt.gpu_id)
+    # set device to CPU
+    device = torch.device('cpu')
 
     seg_dir = os.path.join(opt.root_real_imgs, 'seg')
     depth_dir = os.path.join(opt.root_real_imgs, 'depth_map')
@@ -108,8 +108,8 @@ def recon3D_from_hairstep(opt):
     os.makedirs(output_mesh_dir, exist_ok=True)
     os.makedirs(output_hair3D_dir, exist_ok=True)
 
-    occ_net = load_occNet(cuda, opt)
-    orien_net = load_orienNet(cuda, opt)
+    occ_net = load_occNet(opt)
+    orien_net = load_orienNet(opt)
 
     items = os.listdir(strand_dir)
 
@@ -128,10 +128,10 @@ def recon3D_from_hairstep(opt):
             calib = load_calib(calib_path)
             hairstep = load_hairstep(strand_path, depth_path, seg_path, opt.loadSize)
 
-            test_data = {'hairstep': hairstep, 'calib':calib}
+            test_data = {'hairstep': hairstep, 'calib': calib}
 
-            gen_mesh_real(opt, occ_net, cuda, test_data, mesh_path)
-            export_hair_real(orien_net, cuda, test_data, mesh_path, hair3D_path)
+            gen_mesh_real(opt, occ_net, device, test_data, mesh_path)
+            export_hair_real(orien_net, device, test_data, mesh_path, hair3D_path)
 
 if __name__ == '__main__':
     opt = BaseOptions().parse()

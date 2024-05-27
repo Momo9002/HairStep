@@ -24,7 +24,7 @@ def GetPoseLms2d(imgs):
     # config_path = './external/3DDFA_V2/configs/mb1_120x120.yml'
     cfg = yaml.load(open(config_path), Loader=yaml.SafeLoader)
 
-    gpu_mode= True
+    gpu_mode= False
     tddfa = TDDFA(gpu_mode=gpu_mode, **cfg)
     face_boxes = FaceBoxes()
     dense_flag = False

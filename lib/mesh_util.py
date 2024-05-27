@@ -2,18 +2,17 @@ from skimage import measure
 import numpy as np
 import torch
 from .sdf import create_grid, eval_grid_octree, eval_grid
-from skimage import measure
 
 import warnings
 warnings.filterwarnings('ignore')
 
-def reconstruction(net, cuda, calib_tensor,
+def reconstruction(net, device, calib_tensor,
                    resolution, b_min, b_max,
                    use_octree=False, num_samples=10000, transform=None):
     '''
     Reconstruct meshes from sdf predicted by the network.
     :param net: a BasePixImpNet object. call image filter beforehead.
-    :param cuda: cuda device
+    :param device: device (cpu or cuda)
     :param calib_tensor: calibration tensor
     :param resolution: resolution of the grid cell
     :param b_min: bounding box corner [x_min, y_min, z_min]
@@ -30,7 +29,7 @@ def reconstruction(net, cuda, calib_tensor,
     # Then we define the lambda function for cell evaluation
     def eval_func(points):
         points = np.expand_dims(points, axis=0)
-        samples = torch.from_numpy(points).to(device=cuda).float()
+        samples = torch.from_numpy(points).to(device=device).float()
         net.query(samples, calib_tensor)
         pred = net.get_preds()[0][0]
         return pred.detach().cpu().numpy()
@@ -48,13 +47,13 @@ def reconstruction(net, cuda, calib_tensor,
         verts = np.matmul(mat[:3, :3], verts.T) + mat[:3, 3:4]
         verts = verts.T
         return verts, faces, normals, values
-    except:
-        print('error cannot marching cubes')
+    except Exception as e:
+        print('Error during marching cubes:', e)
         return -1
     
-def gen_mesh_real(opt, net, cuda, data, save_path, use_octree=True):
-    image_tensor = data['hairstep'].to(device=cuda).unsqueeze(0)
-    calib_tensor = data['calib'].to(device=cuda).unsqueeze(0)
+def gen_mesh_real(opt, net, device, data, save_path, use_octree=True):
+    image_tensor = data['hairstep'].to(device=device).unsqueeze(0)
+    calib_tensor = data['calib'].to(device=device).unsqueeze(0)
 
     net.filter(image_tensor)
 
@@ -62,49 +61,38 @@ def gen_mesh_real(opt, net, cuda, data, save_path, use_octree=True):
     b_max = np.array([0.3, 2.0, 0.3])
     try:
         verts, faces, _, _ = reconstruction(
-            net, cuda, calib_tensor, opt.resolution, b_min, b_max, use_octree=use_octree)
+            net, device, calib_tensor, opt.resolution, b_min, b_max, use_octree=use_octree)
         save_obj_mesh(save_path, verts, faces)
     except Exception as e:
         print(e)
-        print('Can not create marching cubes at this time.')
+        print('Cannot create marching cubes at this time.')
 
 def save_obj_mesh(mesh_path, verts, faces):
-    file = open(mesh_path, 'w')
-
-    for v in verts:
-        file.write('v %.4f %.4f %.4f\n' % (v[0], v[1], v[2]))
-    for f in faces:
-        f_plus = f + 1
-        file.write('f %d %d %d\n' % (f_plus[0], f_plus[2], f_plus[1]))
-    file.close()
-
+    with open(mesh_path, 'w') as file:
+        for v in verts:
+            file.write('v %.4f %.4f %.4f\n' % (v[0], v[1], v[2]))
+        for f in faces:
+            f_plus = f + 1
+            file.write('f %d %d %d\n' % (f_plus[0], f_plus[2], f_plus[1]))
 
 def save_obj_mesh_with_color(mesh_path, verts, faces, colors):
-    file = open(mesh_path, 'w')
-
-    for idx, v in enumerate(verts):
-        c = colors[idx]
-        file.write('v %.4f %.4f %.4f %.4f %.4f %.4f\n' % (v[0], v[1], v[2], c[0], c[1], c[2]))
-    for f in faces:
-        f_plus = f + 1
-        file.write('f %d %d %d\n' % (f_plus[0], f_plus[2], f_plus[1]))
-    file.close()
-
+    with open(mesh_path, 'w') as file:
+        for idx, v in enumerate(verts):
+            c = colors[idx]
+            file.write('v %.4f %.4f %.4f %.4f %.4f %.4f\n' % (v[0], v[1], v[2], c[0], c[1], c[2]))
+        for f in faces:
+            f_plus = f + 1
+            file.write('f %d %d %d\n' % (f_plus[0], f_plus[2], f_plus[1]))
 
 def save_obj_mesh_with_uv(mesh_path, verts, faces, uvs):
-    file = open(mesh_path, 'w')
-
-    for idx, v in enumerate(verts):
-        vt = uvs[idx]
-        file.write('v %.4f %.4f %.4f\n' % (v[0], v[1], v[2]))
-        file.write('vt %.4f %.4f\n' % (vt[0], vt[1]))
-
-    for f in faces:
-        f_plus = f + 1
-        file.write('f %d/%d %d/%d %d/%d\n' % (f_plus[0], f_plus[0],
-                                              f_plus[2], f_plus[2],
-                                              f_plus[1], f_plus[1]))
-    file.close()
+    with open(mesh_path, 'w') as file:
+        for idx, v in enumerate(verts):
+            vt = uvs[idx]
+            file.write('v %.4f %.4f %.4f\n' % (v[0], v[1], v[2]))
+            file.write('vt %.4f %.4f\n' % (vt[0], vt[1]))
+        for f in faces:
+            f_plus = f + 1
+            file.write('f %d/%d %d/%d %d/%d\n' % (f_plus[0], f_plus[0], f_plus[2], f_plus[2], f_plus[1], f_plus[1]))
 
 def load_obj_mesh(mesh_file):
     vertex_data = []

@@ -8,9 +8,9 @@ import numpy as np
 from .mesh_util import *
 from PIL import Image
 
-def gen_mesh(opt, net, cuda, data, save_path, use_octree=True):
-    image_tensor = data['img'].to(device=cuda).unsqueeze(0)
-    calib_tensor = data['calib'].to(device=cuda).unsqueeze(0)
+def gen_mesh(opt, net, device, data, save_path, use_octree=True):
+    image_tensor = data['img'].to(device=device).unsqueeze(0)
+    calib_tensor = data['calib'].to(device=device).unsqueeze(0)
 
     net.filter(image_tensor)
 
@@ -26,8 +26,8 @@ def gen_mesh(opt, net, cuda, data, save_path, use_octree=True):
         Image.fromarray(np.uint8(save_img[:,:,::-1])).save(save_img_path)
 
         verts, faces, _, _ = reconstruction(
-            net, cuda, calib_tensor, opt.resolution, b_min, b_max, use_octree=use_octree)
-        verts_tensor = torch.from_numpy(verts.T).unsqueeze(0).to(device=cuda).float()
+            net, device, calib_tensor, opt.resolution, b_min, b_max, use_octree=use_octree)
+        verts_tensor = torch.from_numpy(verts.T).unsqueeze(0).to(device=device).float()
 
         save_obj_mesh(save_path, verts, faces)
     except Exception as e:
@@ -97,6 +97,8 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
         assert (torch.cuda.is_available())
         net.to(gpu_ids[0])
         net = torch.nn.DataParallel(net, gpu_ids)  # multi-GPUs
+    else:
+        net.to('cpu')
     init_weights(net, init_type, init_gain=init_gain)
     return net
 
@@ -225,4 +227,3 @@ class ConvBlock(nn.Module):
         out3 += residual
 
         return out3
-  

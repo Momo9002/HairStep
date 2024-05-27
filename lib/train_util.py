@@ -37,47 +37,46 @@ def compute_acc(pred, gt, thresh=0.5):
             vol_gt = 1
         return true_pos / union, true_pos / vol_pred, true_pos / vol_gt
 
-
-def calc_error(opt, net, cuda, dataset, num_tests):
+def calc_error(opt, net, device, dataset, num_tests):
     if num_tests > len(dataset):
         num_tests = len(dataset)
     with torch.no_grad():
-        erorr_arr, IOU_arr, prec_arr, recall_arr = [], [], [], []
+        error_arr, IOU_arr, prec_arr, recall_arr = [], [], [], []
         for idx in tqdm(range(num_tests)):
             data = dataset[idx * len(dataset) // num_tests]
             # retrieve the data
-            image_tensor = data['img'].to(device=cuda).unsqueeze(0)
-            depth_tensor = data['depth'].to(device=cuda).unsqueeze(0)
-            sample_tensor = data['samples'].to(device=cuda).unsqueeze(0)
-            label_tensor = data['labels'].to(device=cuda).unsqueeze(0)
-            calib_tensor = data['calib'].to(device=cuda).unsqueeze(0)
+            image_tensor = data['img'].to(device=device).unsqueeze(0)
+            depth_tensor = data['depth'].to(device=device).unsqueeze(0)
+            sample_tensor = data['samples'].to(device=device).unsqueeze(0)
+            label_tensor = data['labels'].to(device=device).unsqueeze(0)
+            calib_tensor = data['calib'].to(device=device).unsqueeze(0)
 
             res, error = net.forward(image_tensor, sample_tensor, calib_tensor, depth_maps=depth_tensor, labels=label_tensor)
 
             IOU, prec, recall = compute_acc(res, label_tensor)
 
-            erorr_arr.append(error.item())
+            error_arr.append(error.item())
             IOU_arr.append(IOU.item())
             prec_arr.append(prec.item())
             recall_arr.append(recall.item())
 
-    return np.average(erorr_arr), np.average(IOU_arr), np.average(prec_arr), np.average(recall_arr)
+    return np.average(error_arr), np.average(IOU_arr), np.average(prec_arr), np.average(recall_arr)
 
-def calc_error_orien(opt, net, cuda, dataset, num_tests):
+def calc_error_orien(opt, net, device, dataset, num_tests):
     if num_tests > len(dataset):
         num_tests = len(dataset)
     with torch.no_grad():
-        erorr_arr = []
+        error_arr = []
         for idx in tqdm(range(num_tests)):
             data = dataset[idx * len(dataset) // num_tests]
             # retrieve the data
-            image_tensor = data['img'].to(device=cuda).unsqueeze(0)
-            depth_tensor = data['depth'].to(device=cuda).unsqueeze(0)
-            sample_tensor = data['samples'].to(device=cuda).unsqueeze(0)
-            label_tensor = data['labels'].to(device=cuda).unsqueeze(0)
-            calib_tensor = data['calib'].to(device=cuda).unsqueeze(0)
+            image_tensor = data['img'].to(device=device).unsqueeze(0)
+            depth_tensor = data['depth'].to(device=device).unsqueeze(0)
+            sample_tensor = data['samples'].to(device=device).unsqueeze(0)
+            label_tensor = data['labels'].to(device=device).unsqueeze(0)
+            calib_tensor = data['calib'].to(device=device).unsqueeze(0)
 
             res, error = net.forward(image_tensor, sample_tensor, calib_tensor, depth_maps=depth_tensor, labels=label_tensor)
-            erorr_arr.append(error.item())
+            error_arr.append(error.item())
 
-    return np.average(erorr_arr)
+    return np.average(error_arr)
